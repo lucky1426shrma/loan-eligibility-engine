@@ -1,0 +1,21 @@
+{
+  "id": "adv_0006",
+  "description": "Double-booking collision on already occupied slot without alternative slot acceptance.",
+  "today": "2026-10-01",
+  "turns": [
+    "Dr. Rao ke saath aaj 1 October subah 9:30 ka appointment book karo.",
+    "Rajesh Sharma, 9812200073.",
+    "Mujhe aur koi slot nahi chahiye, 9:30 hi chahiye."
+  ],
+  "expected": {
+    "terminal_state": "abandoned",
+    "escalation_reason": null,
+    "must_call": [
+      "search_slots"
+    ],
+    "must_not_call": [
+      "book_appointment"
+    ],
+    "notes": "09:30 on 2026-10-01 is already occupied by ap_0001; a naive agent attempts to insert it anyway causing a double-booking collision."
+  }
+}

@@ -1,13 +1,166 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'><circle cx='12' cy='12' r='10'/><path d='M12 7v10M7 12h10' stroke='white' stroke-width='2.5'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SwasthiQ Clinic — Front Desk Agent Console</title>
-  </head>
-  <body class="bg-gray-50 text-gray-900 antialiased selection:bg-sky-100 selection:text-sky-900">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Loan Eligibility Engine</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-badge">⚡</div>
+        <div>
+          <h1>The Loan Eligibility Engine</h1>
+          <p class="subtitle">Cloud-Scale Ingestion • Multi-Stage Optimization Funnel • n8n Automation</p>
+        </div>
+      </div>
+      <div class="status-badge" id="system-status">
+        <span class="pulse-dot"></span> System Ready
+      </div>
+    </header>
+
+    <!-- Metrics Bar -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Active Loan Products</div>
+        <div class="metric-value" id="stat-products">--</div>
+        <div class="metric-sub">Autonomously Crawled (WF-A)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Ingested Users</div>
+        <div class="metric-value" id="stat-users">--</div>
+        <div class="metric-sub">Streaming COPY into RDS</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Pre-Approved Matches</div>
+        <div class="metric-value" id="stat-matches">--</div>
+        <div class="metric-sub">Indexed SQL + Heuristics</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Cached AI Archetypes</div>
+        <div class="metric-value" id="stat-archetypes">--</div>
+        <div class="metric-sub">99.9% LLM Cost Reduction</div>
+      </div>
+    </section>
+
+    <!-- Main Ingestion Console -->
+    <main class="console-card">
+      <div class="card-header">
+        <h2>1. Scalable User Data Ingestion</h2>
+        <span class="badge-tag">S3 Presigned URL + S3 Event Lambda</span>
+      </div>
+      <p class="card-desc">
+        Upload a bulk user profile CSV. The file is uploaded directly to Amazon S3 via a cryptographically signed presigned URL, bypassing API Gateway payload and timeout limits.
+      </p>
+
+      <!-- Dropzone -->
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".csv" style="display: none;">
+        <div class="dropzone-icon">📁</div>
+        <div class="dropzone-text">
+          <strong>Choose a CSV file</strong> or drag & drop here
+        </div>
+        <div class="dropzone-hint">
+          Requires columns: <code>user_id, email, monthly_income, credit_score, employment_status, age</code>
+        </div>
+        <button type="button" class="btn btn-secondary" id="browse-btn">Browse CSV File</button>
+      </div>
+
+      <!-- File Preview & Upload Controls -->
+      <div class="file-preview-bar" id="file-preview-bar" style="display: none;">
+        <div class="file-info">
+          <span class="file-icon">📄</span>
+          <div>
+            <div class="file-name" id="selected-file-name">users.csv</div>
+            <div class="file-size" id="selected-file-size">0 KB</div>
+          </div>
+        </div>
+        <div class="preview-actions">
+          <button class="btn btn-outline" id="remove-file-btn">Remove</button>
+          <button class="btn btn-primary" id="start-upload-btn">Start Ingestion Pipeline</button>
+        </div>
+      </div>
+
+      <!-- Progress & Pipeline Tracker -->
+      <div class="pipeline-tracker" id="pipeline-tracker" style="display: none;">
+        <div class="progress-container">
+          <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-status-label" id="progress-status-label">Preparing upload...</div>
+
+        <!-- Stepper -->
+        <div class="steps-flow">
+          <div class="step-item" id="step-s3">
+            <div class="step-circle">1</div>
+            <div class="step-text">Direct S3 Upload</div>
+          </div>
+          <div class="step-item" id="step-lambda">
+            <div class="step-circle">2</div>
+            <div class="step-text">Streaming Ingest & COPY</div>
+          </div>
+          <div class="step-item" id="step-matching">
+            <div class="step-circle">3</div>
+            <div class="step-text">Workflow B: Optimization Funnel</div>
+          </div>
+          <div class="step-item" id="step-notify">
+            <div class="step-circle">4</div>
+            <div class="step-text">Workflow C: SES Dispatched</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Results Card -->
+      <div class="results-box" id="results-box" style="display: none;">
+        <div class="results-header">
+          <span class="success-icon">✓</span>
+          <h3>Pipeline Execution Succeeded</h3>
+        </div>
+        <div class="results-grid">
+          <div class="res-item">
+            <span class="res-k">Job ID:</span>
+            <span class="res-v code" id="res-job-id">--</span>
+          </div>
+          <div class="res-item">
+            <span class="res-k">Valid Records Ingested:</span>
+            <span class="res-v" id="res-valid-rows">--</span>
+          </div>
+          <div class="res-item">
+            <span class="res-k">Quarantined Records:</span>
+            <span class="res-v" id="res-quarantined">0</span>
+          </div>
+          <div class="res-item">
+            <span class="res-k">Matched Loan Offers:</span>
+            <span class="res-v" id="res-matches">--</span>
+          </div>
+          <div class="res-item">
+            <span class="res-k">Notification Status:</span>
+            <span class="res-v highlight" id="res-notification">Sent via AWS SES</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Helper / Test CSV Actions -->
+      <div class="helper-bar">
+        <span>Need test data?</span>
+        <button class="btn-link" id="download-sample-csv">Download Sample users.csv</button>
+      </div>
+    </main>
+
+    <!-- Architecture Notes Footer -->
+    <footer class="app-footer">
+      <div class="footer-col">
+        <h4>The "Whiteboard Defense" Architecture</h4>
+        <p>Built with asynchronous S3 presigned URLs, streaming PostgreSQL COPY, n8n orchestration, and financial cohort AI caching to eliminate 99.9% of LLM costs at scale.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>

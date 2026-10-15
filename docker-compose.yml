@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: loan_engine_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-loan_engine}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./backend/database/seed_products.sql:/docker-entrypoint-initdb.d/02_seed_products.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-loan_engine}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: loan_engine_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=true
+      - N8N_LOG_LEVEL=info
+      # Shared Environment Variables passed to n8n nodes
+      - DB_POSTGRES_HOST=postgres
+      - DB_POSTGRES_PORT=5432
+      - DB_POSTGRES_USER=${DB_USER:-postgres}
+      - DB_POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_POSTGRES_DATABASE=${DB_NAME:-loan_engine}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_DEFAULT_REGION=${AWS_REGION:-ap-south-1}
+      - TEST_EMAIL_RECIPIENT=${TEST_EMAIL_RECIPIENT:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: loan_engine_localstack
+    restart: unless-stopped
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,ses,lambda
+      - AWS_DEFAULT_REGION=ap-south-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack_data:/var/lib/localstack
+    profiles:
+      - local-cloud
+
+volumes:
+  pg_data:
+    driver: local
+  n8n_data:
+    driver: local
+  localstack_data:
+    driver: local

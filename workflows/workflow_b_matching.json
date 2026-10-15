@@ -1,0 +1,208 @@
+{
+  "name": "Workflow B - User-Loan Matching & Optimization Funnel",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "match-users",
+        "options": {}
+      },
+      "id": "node-webhook-trigger",
+      "name": "Webhook: Ingestion Complete",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [180, 360],
+      "webhookId": "match-users-webhook-id"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  u.id AS user_db_id,\n  u.user_id,\n  u.email,\n  u.monthly_income,\n  u.credit_score,\n  u.employment_status,\n  u.age,\n  p.id AS product_db_id,\n  p.provider_name,\n  p.product_name,\n  p.interest_rate,\n  p.min_credit_score,\n  p.min_monthly_income,\n  p.processing_fee_pct,\n  p.max_loan_amount\nFROM users u\nINNER JOIN loan_products p \n  ON p.is_active = TRUE\n AND u.credit_score >= p.min_credit_score\n AND u.monthly_income >= p.min_monthly_income\n AND u.age BETWEEN p.min_age AND p.max_age\n AND u.employment_status = ANY(p.allowed_employment_statuses)\nWHERE u.job_id = $1::uuid\nORDER BY u.user_id, p.interest_rate ASC;",
+        "additionalFields": {
+          "queryParams": "={{ [ $json.body.job_id ] }}"
+        }
+      },
+      "id": "node-stage1-sql-filter",
+      "name": "Stage 1: SQL Indexed Hard Pre-Filter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [400, 360],
+      "credentials": {
+        "postgres": {
+          "id": "loan-engine-postgres-cred",
+          "name": "PostgreSQL Loan Engine"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 2: Heuristic Scoring & Archetype Fingerprinting\nconst rows = $input.all().map(i => i.json);\nif (!rows || rows.length === 0) {\n  return [];\n}\n\nconst jobId = $('Webhook: Ingestion Complete').first().json.body.job_id;\n\n// 1. Group candidate loan products by user_id\nconst usersMap = {};\nfor (const row of rows) {\n  if (!usersMap[row.user_id]) {\n    usersMap[row.user_id] = {\n      user_db_id: row.user_db_id,\n      user_id: row.user_id,\n      email: row.email,\n      monthly_income: parseFloat(row.monthly_income),\n      credit_score: parseInt(row.credit_score, 10),\n      employment_status: row.employment_status,\n      age: parseInt(row.age, 10),\n      candidates: []\n    };\n  }\n\n  // Calculate heuristic match score (0-100)\n  // Weighted on: APR competitiveness (40%), Income headroom (35%), Score buffer (25%)\n  const rateScore = Math.max(0, 40 * (1 - ((parseFloat(row.interest_rate) - 9.0) / 10.0)));\n  const incomeRatio = Math.min(2.0, parseFloat(row.monthly_income) / (parseFloat(row.min_monthly_income) || 25000));\n  const incomeScore = 35 * (incomeRatio / 2.0);\n  const scoreHeadroom = Math.min(1.0, (parseInt(row.credit_score, 10) - parseInt(row.min_credit_score, 10)) / 150.0);\n  const scorePoints = 25 * Math.max(0, scoreHeadroom);\n  \n  const totalScore = Math.min(99.0, Math.max(50.0, rateScore + incomeScore + scorePoints));\n\n  usersMap[row.user_id].candidates.push({\n    product_db_id: row.product_db_id,\n    provider_name: row.provider_name,\n    product_name: row.product_name,\n    interest_rate: parseFloat(row.interest_rate),\n    match_score: parseFloat(totalScore.toFixed(2))\n  });\n}\n\n// 2. Select Top-2 products and generate Archetype Fingerprint\nconst enrichedUsers = [];\nconst uniqueArchetypes = {};\n\nfor (const userId in usersMap) {\n  const u = usersMap[userId];\n  // Sort by match score descending\n  u.candidates.sort((a, b) => b.match_score - a.match_score);\n  const topOffers = u.candidates.slice(0, 2);\n\n  // Archetype fingerprinting\n  const creditTier = u.credit_score >= 750 ? 'PRIME' : (u.credit_score >= 675 ? 'NEAR_PRIME' : 'FAIR');\n  const incomeBracket = u.monthly_income >= 75000 ? 'HIGH' : (u.monthly_income >= 40000 ? 'MID' : 'ENTRY');\n  const empType = u.employment_status.toLowerCase();\n  const prodKey = topOffers.map(o => o.provider_name.replace(/\\s+/g, '')).sort().join('_');\n  const archetypeKey = `${creditTier}_${empType}_${incomeBracket}_${prodKey}`;\n\n  if (!uniqueArchetypes[archetypeKey]) {\n    uniqueArchetypes[archetypeKey] = {\n      archetype_key: archetypeKey,\n      credit_tier: creditTier,\n      employment_type: empType,\n      income_bracket: incomeBracket,\n      matched_products: topOffers.map(o => `${o.provider_name} ${o.product_name}`).join(', '),\n      sample_top_rate: topOffers[0].interest_rate\n    };\n  }\n\n  enrichedUsers.push({\n    user_db_id: u.user_db_id,\n    user_id: u.user_id,\n    email: u.email,\n    credit_score: u.credit_score,\n    monthly_income: u.monthly_income,\n    archetype_key: archetypeKey,\n    top_offers: topOffers\n  });\n}\n\nreturn [{\n  json: {\n    job_id: jobId,\n    enriched_users: enrichedUsers,\n    archetypes_in_batch: Object.values(uniqueArchetypes)\n  }\n}];"
+      },
+      "id": "node-stage2-heuristics",
+      "name": "Stage 2: Heuristics & Fingerprinting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, 360]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT archetype_key, rationale_template FROM archetype_rationales_cache;"
+      },
+      "id": "node-fetch-cache",
+      "name": "Fetch Archetype Cache",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [840, 360],
+      "credentials": {
+        "postgres": {
+          "id": "loan-engine-postgres-cred",
+          "name": "PostgreSQL Loan Engine"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Identify cache misses vs cache hits\nconst stage2Data = $('Stage 2: Heuristics & Fingerprinting').first().json;\nconst cachedRows = $input.all().map(i => i.json);\n\nconst cacheMap = {};\nfor (const r of cachedRows) {\n  cacheMap[r.archetype_key] = r.rationale_template;\n}\n\nconst neededArchetypes = stage2Data.archetypes_in_batch;\nconst misses = neededArchetypes.filter(a => !cacheMap[a.archetype_key]);\n\nreturn [{\n  json: {\n    job_id: stage2Data.job_id,\n    enriched_users: stage2Data.enriched_users,\n    cache_map: cacheMap,\n    cache_misses: misses,\n    has_misses: misses.length > 0\n  }\n}];"
+      },
+      "id": "node-check-cache-misses",
+      "name": "Check Cache Misses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 360]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hydrate personalized user reasons and build flat matches for DB insert\nconst input = $input.first().json;\nconst users = input.enriched_users;\nconst cacheMap = input.cache_map;\nconst jobId = input.job_id;\n\nconst flatMatches = [];\n\nfor (const user of users) {\n  const template = cacheMap[user.archetype_key] || \n    'Hi {{user_name}}, based on your financial profile, you qualify for {{matched_products}} with pre-approved interest rates starting at {{top_rate}}% p.a.';\n\n  for (const offer of user.top_offers) {\n    const personalizedReason = template\n      .replace(/{{user_name}}/g, user.user_id)\n      .replace(/{{top_rate}}/g, offer.interest_rate.toString())\n      .replace(/{{matched_products}}/g, offer.product_name);\n\n    flatMatches.push({\n      job_id: jobId,\n      user_db_id: user.user_db_id,\n      product_db_id: offer.product_db_id,\n      match_score: offer.match_score,\n      archetype_key: user.archetype_key,\n      eligibility_reason: personalizedReason\n    });\n  }\n}\n\nreturn flatMatches.map(m => ({ json: m }));"
+      },
+      "id": "node-hydrate-matches",
+      "name": "Hydrate Rationales In-Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 360]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO matches (\n  job_id, \n  user_id, \n  product_id, \n  match_score, \n  archetype_key, \n  eligibility_reason, \n  is_notified\n) VALUES (\n  $1::uuid, $2::uuid, $3::uuid, $4, $5, $6, FALSE\n)\nON CONFLICT (user_id, product_id, job_id) DO NOTHING\nRETURNING id;",
+        "additionalFields": {
+          "queryParams": "={{ [ $json.job_id, $json.user_db_id, $json.product_db_id, $json.match_score, $json.archetype_key, $json.eligibility_reason ] }}"
+        }
+      },
+      "id": "node-insert-matches",
+      "name": "Bulk Insert into matches",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1500, 360],
+      "credentials": {
+        "postgres": {
+          "id": "loan-engine-postgres-cred",
+          "name": "PostgreSQL Loan Engine"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/send-notifications",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $('Check Cache Misses').first().json.job_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-trigger-workflow-c",
+      "name": "Trigger Workflow C (Notifications)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1720, 360]
+    }
+  ],
+  "connections": {
+    "Webhook: Ingestion Complete": {
+      "main": [
+        [
+          {
+            "node": "Stage 1: SQL Indexed Hard Pre-Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 1: SQL Indexed Hard Pre-Filter": {
+      "main": [
+        [
+          {
+            "node": "Stage 2: Heuristics & Fingerprinting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stage 2: Heuristics & Fingerprinting": {
+      "main": [
+        [
+          {
+            "node": "Fetch Archetype Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Archetype Cache": {
+      "main": [
+        [
+          {
+            "node": "Check Cache Misses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Cache Misses": {
+      "main": [
+        [
+          {
+            "node": "Hydrate Rationales In-Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hydrate Rationales In-Memory": {
+      "main": [
+        [
+          {
+            "node": "Bulk Insert into matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bulk Insert into matches": {
+      "main": [
+        [
+          {
+            "node": "Trigger Workflow C (Notifications)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

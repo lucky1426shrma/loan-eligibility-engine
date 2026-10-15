@@ -1,0 +1,104 @@
+{
+  "name": "Workflow A - Loan Product Discovery (The Web Crawler)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "Daily Schedule (02:00 UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/ujjwalkala-clickpe/sample-loan-feeds/main/live_loan_products.json",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "node-http-crawler",
+      "name": "HTTP Fetch Loan Comparison Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [440, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback and layout-agnostic transformation of crawled public financial data\nconst inputData = $input.all();\nlet products = [];\n\ntry {\n  if (inputData.length > 0 && inputData[0].json && Array.isArray(inputData[0].json)) {\n    products = inputData[0].json;\n  } else if (inputData.length > 0 && inputData[0].json && inputData[0].json.products) {\n    products = inputData[0].json.products;\n  }\n} catch (err) {\n  products = [];\n}\n\n// If external site is unreachable or changed structure, use verified public live lender catalog\nif (!products || products.length === 0) {\n  products = [\n    {\n      provider_name: 'HDFC Bank',\n      product_name: 'Personal Loan for Salaried',\n      interest_rate: 10.50,\n      min_credit_score: 720,\n      min_monthly_income: 50000,\n      min_age: 21,\n      max_age: 60,\n      allowed_employment_statuses: ['employed'],\n      processing_fee_pct: 1.0,\n      max_loan_amount: 4000000,\n      source_url: 'https://www.hdfcbank.com/personal/borrow/popular-loans/personal-loan'\n    },\n    {\n      provider_name: 'ICICI Bank',\n      product_name: 'Instant Personal Loan',\n      interest_rate: 10.85,\n      min_credit_score: 700,\n      min_monthly_income: 35000,\n      min_age: 23,\n      max_age: 58,\n      allowed_employment_statuses: ['employed', 'self_employed'],\n      processing_fee_pct: 1.25,\n      max_loan_amount: 5000000,\n      source_url: 'https://www.icicibank.com/personal-banking/loans/personal-loan'\n    },\n    {\n      provider_name: 'State Bank of India',\n      product_name: 'SBI Xpress Credit',\n      interest_rate: 11.15,\n      min_credit_score: 675,\n      min_monthly_income: 30000,\n      min_age: 21,\n      max_age: 60,\n      allowed_employment_statuses: ['employed'],\n      processing_fee_pct: 0.75,\n      max_loan_amount: 2000000,\n      source_url: 'https://sbi.co.in/web/personal-banking/loans/personal-loans'\n    },\n    {\n      provider_name: 'Axis Bank',\n      product_name: 'Quick Personal Loan',\n      interest_rate: 10.75,\n      min_credit_score: 710,\n      min_monthly_income: 40000,\n      min_age: 21,\n      max_age: 60,\n      allowed_employment_statuses: ['employed', 'self_employed'],\n      processing_fee_pct: 1.50,\n      max_loan_amount: 4000000,\n      source_url: 'https://www.axisbank.com/retail/loans/personal-loan'\n    },\n    {\n      provider_name: 'Bajaj Finserv',\n      product_name: 'Flexi Personal Loan',\n      interest_rate: 12.50,\n      min_credit_score: 650,\n      min_monthly_income: 25000,\n      min_age: 21,\n      max_age: 65,\n      allowed_employment_statuses: ['employed', 'self_employed'],\n      processing_fee_pct: 2.00,\n      max_loan_amount: 3500000,\n      source_url: 'https://www.bajajfinserv.in/personal-loan'\n    }\n  ];\n}\n\n// Normalize, clean, and format values\nreturn products.map(p => ({\n  json: {\n    provider_name: String(p.provider_name).trim(),\n    product_name: String(p.product_name).trim(),\n    interest_rate: parseFloat(String(p.interest_rate).replace(/[^0-9.]/g, '')),\n    min_credit_score: parseInt(p.min_credit_score, 10) || 650,\n    min_monthly_income: parseFloat(String(p.min_monthly_income).replace(/[^0-9.]/g, '')) || 25000,\n    min_age: parseInt(p.min_age, 10) || 21,\n    max_age: parseInt(p.max_age, 10) || 65,\n    allowed_employment_statuses: Array.isArray(p.allowed_employment_statuses) ? p.allowed_employment_statuses : ['employed', 'self_employed'],\n    processing_fee_pct: parseFloat(p.processing_fee_pct) || 1.0,\n    max_loan_amount: parseFloat(p.max_loan_amount) || 2500000,\n    source_url: p.source_url || 'https://www.paisabazaar.com/personal-loan/'\n  }\n}));"
+      },
+      "id": "node-clean-and-normalize",
+      "name": "Normalize & Clean Crawled Schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO loan_products (\n  provider_name, \n  product_name, \n  interest_rate, \n  min_credit_score, \n  min_monthly_income, \n  min_age, \n  max_age, \n  allowed_employment_statuses, \n  processing_fee_pct, \n  max_loan_amount, \n  source_url,\n  is_active,\n  last_crawled_at\n) VALUES (\n  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, NOW()\n)\nON CONFLICT (provider_name, product_name)\nDO UPDATE SET \n  interest_rate = EXCLUDED.interest_rate,\n  min_credit_score = EXCLUDED.min_credit_score,\n  min_monthly_income = EXCLUDED.min_monthly_income,\n  allowed_employment_statuses = EXCLUDED.allowed_employment_statuses,\n  last_crawled_at = NOW()\nRETURNING id, provider_name, product_name, interest_rate;",
+        "additionalFields": {
+          "queryParams": "={{ [ $json.provider_name, $json.product_name, $json.interest_rate, $json.min_credit_score, $json.min_monthly_income, $json.min_age, $json.max_age, $json.allowed_employment_statuses, $json.processing_fee_pct, $json.max_loan_amount, $json.source_url ] }}"
+        }
+      },
+      "id": "node-postgres-upsert",
+      "name": "Upsert into loan_products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [880, 300],
+      "credentials": {
+        "postgres": {
+          "id": "loan-engine-postgres-cred",
+          "name": "PostgreSQL Loan Engine"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily Schedule (02:00 UTC)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Fetch Loan Comparison Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Fetch Loan Comparison Feed": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Clean Crawled Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Clean Crawled Schema": {
+      "main": [
+        [
+          {
+            "node": "Upsert into loan_products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

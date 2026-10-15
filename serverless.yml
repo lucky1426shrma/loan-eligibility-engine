@@ -1,0 +1,94 @@
+service: loan-eligibility-engine
+
+frameworkVersion: '3'
+
+custom:
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'ap-south-1'}
+  bucketName: loan-eligibility-uploads-${self:custom.stage}-${aws:accountId, 'local'}
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${self:custom.stage}
+  region: ${self:custom.region}
+  memorySize: 256
+  timeout: 30
+  environment:
+    S3_BUCKET_NAME: ${self:custom.bucketName}
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    DB_HOST: ${env:DB_HOST, 'localhost'}
+    DB_PORT: ${env:DB_PORT, '5432'}
+    DB_NAME: ${env:DB_NAME, 'loan_engine'}
+    DB_USER: ${env:DB_USER, 'postgres'}
+    DB_PASSWORD: ${env:DB_PASSWORD, 'postgres'}
+    DATABASE_URL: ${env:DATABASE_URL, ''}
+    N8N_WORKFLOW_B_WEBHOOK_URL: ${env:N8N_WORKFLOW_B_WEBHOOK_URL, 'http://localhost:5678/webhook/match-users'}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${self:custom.bucketName}
+            - arn:aws:s3:::${self:custom.bucketName}/*
+        - Effect: Allow
+          Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+          Resource: "*"
+
+functions:
+  getPresignedUrl:
+    handler: backend/lambdas/presign_url.handler
+    description: Generates temporary presigned S3 PUT URL for direct bulk CSV uploads.
+    events:
+      - httpApi:
+          method: GET
+          path: /upload-url
+      - httpApi:
+          method: OPTIONS
+          path: /upload-url
+
+  ingestCsv:
+    handler: backend/lambdas/ingest_csv.handler
+    description: Streams uploaded CSV from S3, executes bulk COPY to PostgreSQL, and notifies n8n.
+    timeout: 120
+    memorySize: 512
+    events:
+      - s3:
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+            - suffix: .csv
+          existing: false
+
+resources:
+  Resources:
+    # S3 Uploads Bucket with browser CORS configuration & auto-expiry lifecycle rule
+    UserUploadsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - HEAD
+              AllowedOrigins:
+                - "*"
+              MaxAge: 3000
+        LifecycleConfiguration:
+          Rules:
+            - Id: ExpireRawCsvUploadsAfter7Days
+              Status: Enabled
+              ExpirationInDays: 7

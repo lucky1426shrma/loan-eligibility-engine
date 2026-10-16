@@ -9,9 +9,6 @@ results/
 .venv/
 venv/
 
-# Legacy archive
-_legacy_clinic/
-
 # Node / Frontend
 node_modules/
 frontend/node_modules/
@@ -25,4 +22,6 @@ Thumbs.db
 pg_data/
 localstack_data/
 .serverless/
+*.db
+
 

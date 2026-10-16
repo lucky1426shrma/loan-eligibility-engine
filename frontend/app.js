@@ -63,6 +63,10 @@ function setupEventListeners() {
   removeFileBtn.addEventListener('click', resetFileSelection);
   startUploadBtn.addEventListener('click', startPipeline);
   downloadSampleBtn.addEventListener('click', downloadSampleCsv);
+  const downloadSingleBtn = document.getElementById('download-single-csv');
+  if (downloadSingleBtn) {
+    downloadSingleBtn.addEventListener('click', downloadSingleCsv);
+  }
 }
 
 function handleFileSelected(e) {
@@ -244,12 +248,12 @@ function setProgress(percent, label) {
 function downloadSampleCsv() {
   const headers = 'user_id,email,monthly_income,credit_score,employment_status,age\n';
   const rows = [
-    'USR-1001,applicant.one@gmail.com,85000,780,employed,29',
-    'USR-1002,applicant.two@gmail.com,45000,710,employed,34',
-    'USR-1003,applicant.three@gmail.com,32000,670,employed,24',
-    'USR-1004,applicant.four@gmail.com,120000,810,self_employed,42',
-    'USR-1005,applicant.five@gmail.com,26000,655,employed,22',
-    'USR-1006,applicant.six@gmail.com,58000,735,self_employed,38',
+    'USR-1001,internetsurfing45@gmail.com,95000,785,employed,28',
+    'USR-1002,internetsurfing45+one@gmail.com,75000,740,employed,31',
+    'USR-1003,internetsurfing45+two@gmail.com,125000,810,self_employed,35',
+    'USR-1004,internetsurfing45+four@gmail.com,58000,735,employed,38',
+    'USR-1005,internetsurfing45+five@gmail.com,26000,655,employed,22',
+    'USR-1006,internetsurfing45+six@gmail.com,45000,710,employed,34',
     'USR-1007,applicant.seven@gmail.com,18000,590,employed,20', // subprime test (should filter out)
     'USR-1008,applicant.eight@gmail.com,95000,765,employed,31'
   ].join('\n');
@@ -259,6 +263,18 @@ function downloadSampleCsv() {
   const a = document.createElement('a');
   a.setAttribute('href', url);
   a.setAttribute('download', 'users.csv');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function downloadSingleCsv() {
+  const content = 'user_id,email,monthly_income,credit_score,employment_status,age\nUSR-1001,internetsurfing45@gmail.com,95000,785,employed,28\n';
+  const blob = new Blob([content], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.setAttribute('href', url);
+  a.setAttribute('download', 'single_user.csv');
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

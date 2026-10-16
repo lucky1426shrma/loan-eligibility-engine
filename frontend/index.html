@@ -140,15 +140,22 @@
           </div>
           <div class="res-item">
             <span class="res-k">Notification Status:</span>
-            <span class="res-v highlight" id="res-notification">Sent via AWS SES</span>
+            <span class="res-v highlight" id="res-notification">Dispatched to Test Alias</span>
           </div>
+        </div>
+        <div style="margin-top: 16px; text-align: center; display: flex; gap: 12px; justify-content: center;">
+          <a href="/api/email-preview" target="_blank" class="btn btn-secondary" style="text-decoration: none; font-size: 13px;">
+            📧 View Rendered HTML Email
+          </a>
         </div>
       </div>
 
       <!-- Helper / Test CSV Actions -->
-      <div class="helper-bar">
+      <div class="helper-bar" style="display: flex; gap: 16px; justify-content: flex-end; align-items: center;">
         <span>Need test data?</span>
-        <button class="btn-link" id="download-sample-csv">Download Sample users.csv</button>
+        <button class="btn-link" id="download-single-csv" style="font-weight: bold; color: #16a34a;">⚡ Download Single User (internetsurfing45@gmail.com)</button>
+        <span>•</span>
+        <button class="btn-link" id="download-sample-csv">Download Bulk users.csv</button>
       </div>
     </main>
 

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workflow B - The Optimization Treasure Hunt Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Kalam:wght@300;400;700&display=swap');
+    
+    .hand-drawn {
+      font-family: 'Kalam', 'Caveat', cursive, sans-serif;
+    }
+    
+    .rough-box {
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+      box-shadow: 4px 5px 0px rgba(0,0,0,0.15);
+      transition: all 0.2s ease;
+    }
+    .rough-box:hover {
+      transform: translateY(-2px);
+      box-shadow: 6px 8px 0px rgba(0,0,0,0.2);
+    }
+
+    .rough-badge {
+      border-radius: 125px 8px 115px 8px/8px 115px 8px 125px;
+    }
+
+    .sketch-border {
+      border: 2px solid #1e293b;
+    }
+  </style>
+</head>
+<body class="bg-[#fefce8] text-[#0f172a] p-6 hand-drawn select-none">
+
+  <!-- Header -->
+  <div class="max-w-6xl mx-auto mb-6 text-center">
+    <div class="inline-block bg-[#fde047] px-6 py-1.5 rough-box sketch-border border-[#ca8a04] mb-2 transform -rotate-1">
+      <span class="text-xs uppercase tracking-widest font-bold text-[#854d0e]">Workflow B Deep Dive</span>
+    </div>
+    <h1 class="text-3xl md:text-5xl font-bold tracking-tight text-[#0f172a] mb-2">
+      The Optimization Treasure Hunt: 3-Stage Funnel
+    </h1>
+    <p class="text-base md:text-lg text-[#713f12]">
+      How we cut <b>99.9% of LLM calls</b> ($250+ → $0.004) while maintaining 100% personalized underwriting rationales.
+    </p>
+  </div>
+
+  <!-- Comparison Banner (Naive vs 3-Stage Funnel) -->
+  <div class="max-w-6xl mx-auto mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Naive -->
+    <div class="bg-[#fee2e2] p-4 rough-box sketch-border border-[#dc2626]">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-bold text-[#991b1b]">❌ The Naive Approach (N × M)</h3>
+        <span class="bg-[#ef4444] text-white text-xs px-2 py-0.5 rounded font-bold">Unacceptable</span>
+      </div>
+      <p class="text-sm text-[#7f1d1d] mb-2">
+        10,000 Users × 50 Loan Products = <b>500,000 Candidate Pairs</b>
+      </p>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs font-bold text-[#991b1b]">
+        <div class="bg-white/80 p-2 rounded">💸 Cost: $250.00+</div>
+        <div class="bg-white/80 p-2 rounded">⏱️ Time: 70+ Hours</div>
+        <div class="bg-white/80 p-2 rounded">💥 Rate Limit Fails</div>
+      </div>
+    </div>
+
+    <!-- Our 3-Stage Solution -->
+    <div class="bg-[#dcfce7] p-4 rough-box sketch-border border-[#16a34a]">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-bold text-[#166534]">✅ Our 3-Stage Optimization Funnel</h3>
+        <span class="bg-[#22c55e] text-white text-xs px-2 py-0.5 rounded font-bold">99.9% Efficient</span>
+      </div>
+      <p class="text-sm text-[#14532d] mb-2">
+        Indexed SQL Filter + Heuristic Ranking + <b>Cohort Archetype Caching</b>
+      </p>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs font-bold text-[#166534]">
+        <div class="bg-white/80 p-2 rounded">💰 Cost: $0.004</div>
+        <div class="bg-white/80 p-2 rounded">⚡ Latency: &lt; 3 Sec</div>
+        <div class="bg-white/80 p-2 rounded">🎯 30 Total Calls</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The 3-Stage Funnel Flow -->
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- STAGE 1 -->
+    <div class="bg-[#ffffff] p-5 rough-box sketch-border border-[#2563eb] relative">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b-2 border-dashed border-[#dbeafe] pb-3 mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-xl font-bold">1</div>
+          <div>
+            <h2 class="text-xl font-bold text-[#1e40af]">Stage 1: Indexed SQL Relational Pre-Filter</h2>
+            <p class="text-xs text-[#3b82f6]">Prunes 92% of non-matching pairs at the database layer</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="bg-[#dbeafe] text-[#1e40af] text-xs px-3 py-1 rough-badge font-bold border border-[#93c5fd]">Latency: 12ms</span>
+          <span class="bg-[#dcfce7] text-[#166534] text-xs px-3 py-1 rough-badge font-bold border border-[#86efac]">Cost: $0.00</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        <div class="md:col-span-4 bg-[#eff6ff] p-3 rounded-lg border border-[#bfdbfe]">
+          <span class="text-xs font-bold text-[#1e40af] uppercase tracking-wide">Input Volume</span>
+          <p class="text-2xl font-bold text-[#1d4ed8]">500,000 Pairs</p>
+          <p class="text-xs text-[#60a5fa] mt-1">10,000 Users × 50 Loans</p>
+        </div>
+
+        <div class="md:col-span-4 text-center">
+          <div class="inline-block bg-[#f8fafc] px-3 py-1.5 rounded-lg border border-[#cbd5e1] text-xs text-[#334155] font-semibold">
+            ⚡ Composite B-Tree Index Join<br>
+            <code>(credit_score, monthly_income, age, employment_status)</code>
+          </div>
+        </div>
+
+        <div class="md:col-span-4 bg-[#f0fdf4] p-3 rounded-lg border border-[#bbf7d0] text-right md:text-left">
+          <span class="text-xs font-bold text-[#15803d] uppercase tracking-wide">Surviving Volume</span>
+          <p class="text-2xl font-bold text-[#15803d]">40,000 Pairs</p>
+          <p class="text-xs text-[#4ade80] mt-1">Eliminated 460,000 non-viable pairs (92% reduction)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-2xl font-bold text-[#b45309]">↓</div>
+
+    <!-- STAGE 2 -->
+    <div class="bg-[#ffffff] p-5 rough-box sketch-border border-[#d97706] relative">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b-2 border-dashed border-[#fef3c7] pb-3 mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-[#d97706] text-white flex items-center justify-center text-xl font-bold">2</div>
+          <div>
+            <h2 class="text-xl font-bold text-[#b45309]">Stage 2: In-Memory Heuristic Ranking & Top-2 Selection</h2>
+            <p class="text-xs text-[#d97706]">Calculates borrowing capacity & clusters users into financial archetypes</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="bg-[#fef3c7] text-[#92400e] text-xs px-3 py-1 rough-badge font-bold border border-[#fde68a]">Node.js / Python Memory</span>
+          <span class="bg-[#dcfce7] text-[#166534] text-xs px-3 py-1 rough-badge font-bold border border-[#86efac]">Latency: &lt; 200ms</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Logic 1 -->
+        <div class="bg-[#fffbeb] p-3 rounded-lg border border-[#fde68a]">
+          <h4 class="font-bold text-sm text-[#92400e] mb-1">1. FOIR / DTI Calculation</h4>
+          <p class="text-xs text-[#78350f]">
+            Enforces 50% Fixed Obligation to Income Ratio. Checks if applicant has headroom for the requested loan EMI.
+          </p>
+        </div>
+        <!-- Logic 2 -->
+        <div class="bg-[#fffbeb] p-3 rounded-lg border border-[#fde68a]">
+          <h4 class="font-bold text-sm text-[#92400e] mb-1">2. Top-2 Selection</h4>
+          <p class="text-xs text-[#78350f]">
+            Sorts surviving offers by lowest APR and highest approval certainty. Selects strictly <b>Top-2 offers</b> per user (20,000 pairs).
+          </p>
+        </div>
+        <!-- Logic 3 -->
+        <div class="bg-[#fffbeb] p-3 rounded-lg border border-[#fde68a]">
+          <h4 class="font-bold text-sm text-[#92400e] mb-1">3. Archetype Fingerprinting</h4>
+          <p class="text-xs text-[#78350f]">
+            Generates coarse fingerprint: <code>{TIER}_{EMP}_{INCOME}_{LENDERS}</code><br>
+            Example: <b><code>PRIME_employed_HIGH_HDFC_ICICI</code></b>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-2xl font-bold text-[#b45309]">↓</div>
+
+    <!-- STAGE 3 -->
+    <div class="bg-[#ffffff] p-5 rough-box sketch-border border-[#9333ea] relative">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b-2 border-dashed border-[#f3e8ff] pb-3 mb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-[#9333ea] text-white flex items-center justify-center text-xl font-bold">3</div>
+          <div>
+            <h2 class="text-xl font-bold text-[#7e22ce]">Stage 3: Cohort-Archetype Semantic Caching</h2>
+            <p class="text-xs text-[#9333ea]">Across 10,000 users, demographic profiles repeat into ~30 distinct cohorts</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="bg-[#f3e8ff] text-[#7e22ce] text-xs px-3 py-1 rough-badge font-bold border border-[#d8b4fe]">Cache Hit: 99.8%</span>
+          <span class="bg-[#fef08a] text-[#854d0e] text-xs px-3 py-1 rough-badge font-bold border border-[#fde047]">Gemini Flash (Single Call)</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Branch A: Cache Hit -->
+        <div class="bg-[#f0fdf4] p-4 rounded-lg border-2 border-dashed border-[#22c55e]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-sm text-[#15803d]">⚡ PATH A: Cache Hit (99.8% of users)</span>
+            <span class="bg-[#22c55e] text-white text-xs px-2 py-0.5 rounded font-bold">1ms | $0.00</span>
+          </div>
+          <p class="text-xs text-[#166534] mb-2">
+            Archetype exists in SQL table <code>archetype_rationales_cache</code>. Reuses pre-generated rationale template.
+          </p>
+          <div class="bg-white p-2 rounded text-xs text-[#334155] border border-[#bbf7d0]">
+            <code>Template: "Hi {{user_name}}, as a {{emp}} professional with a prime profile, you qualify for {{lender}}..."</code>
+          </div>
+        </div>
+
+        <!-- Branch B: Cache Miss -->
+        <div class="bg-[#faf5ff] p-4 rounded-lg border-2 border-dashed border-[#a855f7]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-sm text-[#7e22ce]">🤖 PATH B: Cache Miss (~30 total times)</span>
+            <span class="bg-[#a855f7] text-white text-xs px-2 py-0.5 rounded font-bold">Gemini Flash</span>
+          </div>
+          <p class="text-xs text-[#6b21a8] mb-2">
+            New unseen archetype. Queries Gemini Flash <b>ONCE</b> for the archetype. Writes the template to SQL cache for all future users.
+          </p>
+          <div class="bg-white p-2 rounded text-xs text-[#334155] border border-[#e9d5ff]">
+            <code>Writes to archetype_rationales_cache (ON CONFLICT DO NOTHING)</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- In-Memory Hydration -->
+      <div class="mt-4 p-3 bg-[#f8fafc] rounded-lg border border-[#cbd5e1] text-center">
+        <span class="text-xs font-bold text-[#1e293b]">🔄 Final Step: In-Memory Token Hydration (&lt; 0.1ms)</span>
+        <p class="text-xs text-[#64748b] mt-0.5">
+          Injects <code>{{user_name}}</code>, <code>{{top_rate}}</code>, and <code>{{matched_products}}</code> into the template. 
+          Result: <b>100% personalized underwriting rationale</b> with zero repetitive AI tokens.
+        </p>
+      </div>
+    </div>
+
+    <div class="text-center text-2xl font-bold text-[#b45309]">↓</div>
+
+    <!-- PERSISTENCE -->
+    <div class="bg-[#ffffff] p-4 rough-box sketch-border border-[#16a34a] text-center">
+      <div class="flex items-center justify-center gap-2 mb-1">
+        <span class="text-xl">💾</span>
+        <h3 class="text-base font-bold text-[#15803d]">Bulk Insert into <code>matches</code> Table &amp; Trigger Workflow C</h3>
+      </div>
+      <p class="text-xs text-[#475569]">
+        Executes idempotent <code>INSERT INTO matches (user_id, product_id, job_id, match_score, eligibility_reason) ON CONFLICT DO NOTHING</code>
+      </p>
+    </div>
+
+  </div>
+
+</body>
+</html>

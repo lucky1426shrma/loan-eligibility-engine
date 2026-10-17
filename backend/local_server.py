@@ -378,6 +378,11 @@ def trigger_send_email(target_email: str = None):
     return dispatch_sample_notification(target_email)
 
 
+# Mount documentation & diagrams static files
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+if DOCS_DIR.exists():
+    app.mount("/docs", StaticFiles(directory=str(DOCS_DIR), html=True), name="docs")
+
 # Mount frontend static files
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 if FRONTEND_DIR.exists():

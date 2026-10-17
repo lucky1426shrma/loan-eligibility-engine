@@ -5,6 +5,12 @@ using either AWS SES (as specified in the assignment) or standard SMTP (e.g. Gma
 """
 
 import os
+import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText

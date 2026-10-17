@@ -25,7 +25,7 @@ load_dotenv()
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-SES_SOURCE_EMAIL = os.getenv("SES_SOURCE_EMAIL", "no-reply@clickpe.in")
+SES_SOURCE_EMAIL = os.getenv("SES_SOURCE_EMAIL", "no-reply@clickpe.ai")
 TEST_EMAIL_RECIPIENT = os.getenv("TEST_EMAIL_RECIPIENT", "yourname+test1@gmail.com")
 
 # Resend API Configuration
@@ -83,7 +83,7 @@ def generate_email_html(user_id: str, applicant_reason: str, offers: List[Dict[s
             <tbody>{offer_rows}</tbody>
           </table>
           <div style="margin-top: 28px; text-align: center;">
-            <a href="https://clickpe.in" style="background: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Claim Pre-Approved Offer</a>
+            <a href="https://clickpe.ai/" style="background: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">Claim Pre-Approved Offer</a>
           </div>
         </div>
         <div style="background: #f8fafc; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">

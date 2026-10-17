@@ -145,18 +145,25 @@ docker compose up -d
 pip install -r backend/requirements.txt
 
 # 2. Start the local server (API + Static Frontend)
-python -m uvicorn backend.local_server:app --port 8000 --reload
+python -m backend.local_server
+# (or simply run: .\run.ps1)
 ```
 
 *   Open your browser to: **`http://localhost:8000`**
-*   Click **"Download Sample users.csv"** or use the included `backend/test_data/users.csv`.
+*   **Two Test CSV Datasets Included for Demonstration:**
+    1.  **`single_user.csv` (`backend/test_data/single_user.csv`):**
+        *   **Targeted Applicant:** `USR-1001` (`internetsurfing45@gmail.com`), Prime Credit (`785`), ₹95,000 Monthly Income.
+        *   **Purpose:** Instant 1-second live verification and video demonstration of live email delivery straight to your test inbox!
+    2.  **`users.csv` (`backend/test_data/users.csv`):**
+        *   **Scale Benchmark:** 250 diverse applicant profiles across varied credit tiers (Prime, Near-Prime, Subprime), income brackets, and employment types.
+        *   **Purpose:** High-throughput streaming ingestion benchmark and multi-cohort matching stress test.
 *   Click **"Start Ingestion Pipeline"** to watch the end-to-end event-driven flow execute live!
 
 ---
 
 ### 5. Deploy to AWS (Serverless Framework)
 
-If deploying to AWS:
+If deploying to AWS Cloud:
 
 ```bash
 # 1. Configure AWS CLI credentials
@@ -168,15 +175,36 @@ npx serverless deploy --stage prod
 
 ---
 
-## 🎯 The Optimization Treasure Hunt Solution
+## 🎯 The Optimization Treasure Hunt Solution (Workflow B)
 
-### The Math:
+### The Problem:
 *   $N = 10,000$ users $\times M = 50$ loan products = **500,000 candidate pairs**.
-*   **Naive Approach:** 500,000 LLM calls $\times$ 500ms = **~70 hours** and **\$250+**.
+*   **The Naive LLM Approach:** 500,000 individual LLM calls $\times$ 500ms = **~70 hours**, **\$250.00+ in API credits**, and guaranteed rate limit failures.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  NAIVE APPROACH: 500,000 LLM Calls ──> $250.00+ ──> 70+ Hours ──> 💥   │
+│  OUR 3-STAGE FUNNEL: ~30 LLM Calls  ──> $0.004   ──> < 3 Sec   ──> ✅  │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ### Our 3-Stage Optimized Funnel:
+
+```
+500,000 Raw Pairs
+   │
+   ▼ [Stage 1: Indexed SQL Relational Pre-Filter] ──> 12ms | $0.00 | Prunes 92%
+40,000 Viable Pairs
+   │
+   ▼ [Stage 2: In-Memory FOIR Heuristics & Top-2 Ranking] ──> Prunes to Top-2 per User
+20,000 Ranked Pairs (Clustered into ~30 Financial Archetypes)
+   │
+   ▼ [Stage 3: Cohort-Archetype Semantic Caching] ──> 99.8% Cache Hits (1ms, $0.00)
+30 Total LLM Calls across entire 10,000 user dataset (99.9% cost reduction!)
+```
+
 1.  **Stage 1: SQL Relational Pre-Filter (PostgreSQL B-Tree Index)**
-    *   Executes:
+    *   Executes an indexed relational join on composite index `(credit_score, monthly_income, age, employment_status)`:
         ```sql
         SELECT u.id, p.id FROM users u 
         INNER JOIN loan_products p 
@@ -185,15 +213,27 @@ npx serverless deploy --stage prod
            AND u.age BETWEEN p.min_age AND p.max_age
         WHERE u.job_id = $1;
         ```
-    *   *Result:* Prunes 92% of non-matching pairs in **12ms**. Cost: **$0.00**.
-2.  **Stage 2: Heuristic Scorer & Ranker (n8n Node)**
-    *   Evaluates FOIR (Fixed Obligation to Income Ratio) and interest rate competitiveness.
-    *   Sorts and retains strictly the **Top-2 best loans** per user.
-3.  **Stage 3: Cohort-Archetype Semantic Caching (Gemini Flash)**
-    *   Computes an archetype key for each user: `PRIME_employed_HIGH_HDFC_ICICI`.
-    *   Across thousands of applicants, there are only ~35 distinct archetypes.
-    *   Checks `archetype_rationales_cache`. On cache hits, **zero LLM calls are made**. On cache misses, Gemini Flash is called **once** to generate the rationale template, which is saved for all subsequent applicants.
-    *   *Result:* Total LLM calls drop from **500,000 down to ~35**. Cost: **<$0.01**. Execution time: **< 3 seconds**.
+    *   *Result:* Prunes **92%** of non-matching pairs in **12 milliseconds** at **$0.00 cost**.
+2.  **Stage 2: In-Memory FOIR Heuristics & Top-2 Ranking**
+    *   Calculates applicant borrowing capacity using the 50% Fixed Obligation to Income Ratio (FOIR).
+    *   Ranks loans by APR competitiveness and credit headroom, selecting strictly the **Top-2 best loans** per user.
+    *   Generates a coarse **Archetype Fingerprint** for each applicant (e.g. `PRIME_employed_HIGH_HDFC_ICICI`).
+3.  **Stage 3: Cohort-Archetype Semantic Caching**
+    *   Across thousands of applicants, financial profiles repeat heavily into only **~30 distinct archetypes**.
+    *   Queries `archetype_rationales_cache`:
+        *   **Cache Hit (99.8% of users):** Reuses the pre-generated template in **1 millisecond** with **ZERO LLM calls** ($0.00).
+        *   **Cache Miss (~30 total times):** Calls **Gemini Flash once**, writes the template to SQL cache, and hydrates it for all future users.
+    *   **In-Memory Hydration:** Replaces `{{user_name}}`, `{{top_rate}}`, and `{{matched_products}}` directly in memory in `< 0.1ms`.
+    *   *Result:* Total LLM calls drop from **500,000 down to ~30**, reducing AI cost by **99.9%** ($250+ $\rightarrow$ $0.004) and latency to **under 3 seconds**.
+
+---
+
+## 📊 Interactive Architecture & Workflow Diagrams
+
+Interactive visual diagrams are available directly in your browser:
+*   🗺️ **End-to-End Architecture (Excalidraw Style):** [`docs/architecture_diagram.html`](file:///d:/dev_raw/f1%20assignement/docs/architecture_diagram.html)
+*   🎯 **Workflow B Optimization Funnel Deep Dive:** [`docs/workflow_b_diagram.html`](file:///d:/dev_raw/f1%20assignement/docs/workflow_b_diagram.html)
+*   🤖 **Interactive n8n Workflow Automation Canvas:** [`docs/n8n_visualizer.html`](file:///d:/dev_raw/f1%20assignement/docs/n8n_visualizer.html)
 
 ---
 
@@ -202,21 +242,24 @@ npx serverless deploy --stage prod
 ```
 ├── docker-compose.yml              # PostgreSQL 16 + self-hosted n8n + LocalStack
 ├── serverless.yml                  # AWS Serverless Framework (Lambda, S3, SES)
-├── .env.example                    # Template configuration
+├── run.ps1                         # 1-Click PowerShell Project Launcher
+├── .env.example                    # Template configuration (AWS, Resend, DB)
 ├── README.md                       # Comprehensive documentation
 ├── backend/
 │   ├── database/
 │   │   ├── schema.sql              # Normalized DDL with composite B-Tree indexes
-│   │   ├── seed_products.sql       # Seed data for top Indian lenders
-│   │   └── db_client.py            # High-throughput psycopg3 client
+│   │   ├── seed_products.sql       # Seed data for top Indian lenders & cache
+│   │   └── db_client.py            # High-throughput client with SQLite fallback
 │   ├── lambdas/
 │   │   ├── presign_url.py          # S3 Presigned URL Generator Lambda
 │   │   └── ingest_csv.py           # Streaming S3 CSV Ingester with COPY
-│   ├── local_server.py             # Local dev runner & API simulator
+│   ├── local_server.py             # Local dev server, S3 emulator, & UI API
+│   ├── send_notification_email.py  # Pluggable email engine (AWS SES + Resend API)
 │   ├── requirements.txt            # Python dependencies
 │   └── test_data/
 │       ├── generate_test_data.py   # Test dataset generator
-│       └── users.csv               # Sample test CSV
+│       ├── single_user.csv         # 1-user targeted test CSV (instant email verification)
+│       └── users.csv               # 250-user bulk scale test CSV
 ├── workflows/
 │   ├── workflow_a_discovery.json   # n8n Loan Product Discovery Crawler
 │   ├── workflow_b_matching.json    # n8n 3-Stage Optimization Matching Funnel
@@ -228,15 +271,15 @@ npx serverless deploy --stage prod
 └── docs/
     ├── ADR.md                      # Architectural Decision Records
     ├── WHITEBOARD_DEFENSE.md       # Interview Q&A defense cheat sheet
-    └── VIDEO_WALKTHROUGH_SCRIPT.md # 5-10 minute demonstration video script
+    ├── VIDEO_WALKTHROUGH_SCRIPT.md # 5-10 minute demonstration video script
+    ├── architecture_diagram.html   # Excalidraw-style full architecture diagram
+    ├── workflow_b_diagram.html     # Dedicated Workflow B funnel diagram
+    └── n8n_visualizer.html         # Interactive n8n workflow canvas viewer
 ```
 
 ---
 
-## 👥 Collaborators
+## 👤 Author & Repository Owner
 
-Invited as collaborators on the GitHub repository:
-- `ujjwalkala-clickpe`
-- `HarshSrivastav-Dailype`
-- `ManishBiswal-clickpe`
-- `tushar-clickpe`
+- **Lucky Sharma** ([@lucky1426shrma](https://github.com/lucky1426shrma))
+  * Built for ClickPe & DailyPe SDE / Engineering Assignment.

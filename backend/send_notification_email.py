@@ -28,10 +28,15 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 SES_SOURCE_EMAIL = os.getenv("SES_SOURCE_EMAIL", "no-reply@clickpe.in")
 TEST_EMAIL_RECIPIENT = os.getenv("TEST_EMAIL_RECIPIENT", "yourname+test1@gmail.com")
 
+# Resend API Configuration
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
+
 
 
 def generate_email_html(user_id: str, applicant_reason: str, offers: List[Dict[str, Any]]) -> str:
@@ -88,6 +93,39 @@ def generate_email_html(user_id: str, applicant_reason: str, offers: List[Dict[s
     </body>
     </html>
     """
+
+
+def send_via_resend(recipient: str, subject: str, html_body: str) -> bool:
+    """Send email using Resend Developer API."""
+    import urllib.request
+    import json
+
+    if not RESEND_API_KEY:
+        raise ValueError("RESEND_API_KEY is not configured in .env.")
+
+    print(f"[*] Dispatching via Resend API to {recipient}...")
+    payload = json.dumps({
+        "from": RESEND_FROM_EMAIL,
+        "to": [recipient],
+        "subject": subject,
+        "html": html_body
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": "LoanEligibilityEngine/1.0"
+        },
+        method="POST"
+    )
+
+    with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        print(f"[+] Resend Message ID: {data.get('id')}")
+        return True
 
 
 def send_via_aws_ses(recipient: str, subject: str, html_body: str) -> bool:
@@ -150,18 +188,27 @@ def dispatch_sample_notification(target_email: str = None) -> Dict[str, Any]:
     subject = f"Pre-Approved Personal Loan Offers for Applicant {user_id}"
     html_content = generate_email_html(user_id, reason, rows)
 
-    # Attempt SES first if AWS keys exist, otherwise attempt SMTP
     sent = False
     provider = "None"
     error = None
 
-    if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    # Priority 1: Resend API (Fast, reliable developer email service)
+    if RESEND_API_KEY:
+        try:
+            sent = send_via_resend(recipient, subject, html_content)
+            provider = "Resend API"
+        except Exception as e:
+            error = f"Resend error: {e}"
+
+    # Priority 2: AWS SES (Cloud production provider)
+    if not sent and AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
         try:
             sent = send_via_aws_ses(recipient, subject, html_content)
             provider = "AWS SES"
         except Exception as e:
             error = f"AWS SES error: {e}"
 
+    # Priority 3: SMTP (Standard TLS mail relay)
     if not sent and SMTP_USER and SMTP_PASS:
         try:
             sent = send_via_smtp(recipient, subject, html_content)

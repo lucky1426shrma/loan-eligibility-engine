@@ -77,6 +77,68 @@ def sanitize_number(val: Any) -> Optional[float]:
     except ValueError:
         return None
 
+def call_gemini_flash_for_archetype(
+    archetype_key: str, 
+    credit_tier: str, 
+    emp: str, 
+    income_bracket: str, 
+    matched_products: str
+) -> str:
+    """
+    Stage 3 LLM Archetype Generation:
+    Invoked ONLY on cache misses (approx ~30 times across 10,000 users).
+    Queries Google Gemini Flash API to generate a reusable 2-sentence rationale template.
+    If GEMINI_API_KEY is not configured or network fails, falls back gracefully to a deterministic template.
+    """
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+    fallback_template = (
+        f"Hi {{user_name}}, as a {emp} professional with a {credit_tier.lower()} credit profile, "
+        f"you qualify for pre-approved terms with {{matched_products}} starting at {{top_rate}}% p.a."
+    )
+
+    if not gemini_key:
+        print(f"[Stage 3 LLM Cache Miss] Archetype '{archetype_key}' generated via fallback template (No GEMINI_API_KEY set).")
+        return fallback_template
+
+    try:
+        import urllib.request
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+        prompt = (
+            f"You are a credit underwriting engine assistant for ClickPe & DailyPe. "
+            f"Generate a personalized, highly professional 2-sentence eligibility explanation template for a borrower cohort.\n"
+            f"Cohort Attributes:\n"
+            f"- Credit Tier: {credit_tier}\n"
+            f"- Employment: {emp}\n"
+            f"- Income Bracket: {income_bracket}\n"
+            f"- Matched Lenders: {matched_products}\n\n"
+            f"Instructions:\n"
+            f"1. You MUST include exactly these dynamic placeholders: '{{user_name}}', '{{matched_products}}', and '{{top_rate}}% p.a.'\n"
+            f"2. Keep it under 35 words total.\n"
+            f"3. Do not include quotes, markdown headers, or preamble. Return ONLY the template string."
+        )
+        payload = json.dumps({
+            "contents": [{"parts": [{"text": prompt}]}]
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            generated_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if "{user_name}" in generated_text or "{{user_name}}" in generated_text:
+                print(f"[Stage 3 LLM Gemini Flash] Successfully generated rationale template for archetype '{archetype_key}'.")
+                return generated_text
+    except Exception as e:
+        print(f"[Stage 3 LLM Warning] Gemini call skipped/failed ({e}). Reverting to fallback template.")
+
+    return fallback_template
+
 
 def execute_matching_funnel(job_id: str):
     """
@@ -172,7 +234,28 @@ def execute_matching_funnel(job_id: str):
 
             template = cache_map.get(archetype_key)
             if not template:
-                template = f"Hi {{user_name}}, as a {emp} professional with a {credit_tier.lower()} credit profile, you qualify for pre-approved terms with {{matched_products}} starting at {{top_rate}}% p.a."
+                matched_prod_names = ", ".join([o["product_name"] for o in top_offers])
+                template = call_gemini_flash_for_archetype(
+                    archetype_key=archetype_key,
+                    credit_tier=credit_tier,
+                    emp=emp,
+                    income_bracket=income_bracket,
+                    matched_products=matched_prod_names
+                )
+                cache_map[archetype_key] = template
+
+                # Persist to archetype cache so subsequent users and batches never invoke LLM again
+                if is_postgres_available():
+                    cur.execute("""
+                    INSERT INTO archetype_rationales_cache (archetype_key, credit_tier, employment_type, income_bracket, matched_products, rationale_template)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (archetype_key) DO NOTHING;
+                    """, (archetype_key, credit_tier, emp, income_bracket, matched_prod_names, template))
+                else:
+                    cur.execute("""
+                    INSERT OR IGNORE INTO archetype_rationales_cache (archetype_key, credit_tier, employment_type, income_bracket, matched_products, rationale_template)
+                    VALUES (?, ?, ?, ?, ?, ?);
+                    """, (archetype_key, credit_tier, emp, income_bracket, matched_prod_names, template))
 
             for offer in top_offers:
                 reason = template.replace("{{user_name}}", uid).replace("{user_name}", uid)\
